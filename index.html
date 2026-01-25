@@ -3,12 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Cache-Control" content="public, max-age=31536000"> <title>Tifor Admin Control - Turbo V11</title>
+    <meta name="theme-color" content="#050b14">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000"> 
+    <title>Tifor Admin Control - Turbo V12</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- BcryptJS for Secure PIN -->
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Hind+Siliguri:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <script>
+        // 🛠️ FIX: Initialize bcrypt correctly
+        var bcrypt = window.dcodeIO ? window.dcodeIO.bcrypt : window.bcrypt;
+
         tailwind.config = {
             theme: {
                 extend: {
@@ -21,19 +34,121 @@
         // ⚠️ তোর Google Apps Script এর লিংক এখানে বসাবি
         const API_URL = "https://script.google.com/macros/s/AKfycbw-oqETI8pdpmwQJYDbEYxxNrDisHC2dg6dx8N0TWpWg-5CSEQpL2sDEXKYg_2ixaCpKw/exec";
         
-        const VALID_PIN_B64 = "NTA0OTY3"; 
+        // 🔒 SECURITY CONFIG
+        const VALID_PIN_B64 = "NTA0OTY3"; // 504967
+        const ADMIN_PIN_HASH = "$2a$10$Nm8h.w./exampleHashPlaceHolder..."; 
+        
+        const MAX_ATTEMPTS = 3; 
+        const BLOCK_TIME_MIN = 10; 
+        const SESSION_TIMEOUT_MIN = 15; 
+        
+        // 🔊 Notification Sound
+        const notifSound = new Audio("https://www.myinstants.com/media/sounds/super-mario-coin-sound.mp3");
     </script>
 
     <style>
-        body { background: #050b14; color: #e2e8f0; font-family: 'Rajdhani', sans-serif; overflow-x: hidden; }
-        .glass { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); }
-        .glass-header { background: rgba(15, 23, 42, 0.95); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-        .card-active { background: rgba(0, 243, 255, 0.05) !important; border-color: #00f3ff !important; box-shadow: 0 0 15px rgba(0, 243, 255, 0.15); }
+        /* 🔥 CSS VARIABLES - DARK MODE IS NOW DEFAULT */
+        :root {
+            /* Default is DARK (Night Mode) */
+            --bg-color: #050b14;
+            --text-main: #e2e8f0;
+            --text-sub: #94a3b8;
+            --glass-bg: rgba(30, 41, 59, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --card-bg: rgba(15, 23, 42, 0.6);
+            --header-bg: rgba(15, 23, 42, 0.95);
+            --input-bg: rgba(2, 6, 23, 0.6);
+            --input-border: #334155;
+            --skeleton-base: #1e293b;
+            --skeleton-highlight: #334155;
+        }
+
+        /* LIGHT Mode Override */
+        [data-theme="light"] {
+            --bg-color: #f1f5f9;
+            --text-main: #0f172a;
+            --text-sub: #475569;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(0, 0, 0, 0.1);
+            --card-bg: rgba(255, 255, 255, 0.8);
+            --header-bg: rgba(255, 255, 255, 0.9);
+            --input-bg: rgba(255, 255, 255, 0.9);
+            --input-border: #cbd5e1;
+            --skeleton-base: #e2e8f0;
+            --skeleton-highlight: #f8fafc;
+        }
+
+        body { 
+            background: var(--bg-color); 
+            color: var(--text-main); 
+            font-family: 'Rajdhani', sans-serif; 
+            overflow-x: hidden; 
+            transition: background 0.5s ease, color 0.5s ease;
+        }
+
+        .glass { 
+            background: var(--glass-bg); 
+            backdrop-filter: blur(16px); 
+            border: 1px solid var(--glass-border); 
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); 
+            transition: all 0.5s ease;
+        }
+        
+        .glass-header { 
+            background: var(--header-bg); 
+            border-bottom: 1px solid var(--glass-border); 
+            transition: all 0.5s ease;
+        }
+
+        .card-active { 
+            background: rgba(0, 243, 255, 0.1) !important; 
+            border-color: #00f3ff !important; 
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.15); 
+        }
+
+        /* Utility Class Overrides for Theme Compatibility */
+        .theme-text { color: var(--text-main); }
+        .theme-subtext { color: var(--text-sub); }
+        .theme-input { background: var(--input-bg) !important; border-color: var(--input-border) !important; color: var(--text-main) !important; }
+
         .status-pending { border-left: 4px solid #eab308; }
         .status-success { border-left: 4px solid #10b981; }
         .status-cancelled { border-left: 4px solid #ff0f39; opacity: 0.8; }
-        .loader { border: 3px solid rgba(0, 243, 255, 0.1); border-top: 3px solid #00f3ff; border-radius: 50%; width: 30px; height: 30px; animation: spin 0.8s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* 🔥 ADVANCED SKELETON LOADER CSS */
+        .skeleton-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .skeleton-box {
+            background-color: var(--skeleton-base);
+            border-radius: 0.25rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .skeleton-box::after {
+            position: absolute;
+            top: 0; right: 0; bottom: 0; left: 0;
+            transform: translateX(-100%);
+            background-image: linear-gradient(
+                90deg,
+                rgba(255, 255, 255, 0) 0,
+                rgba(255, 255, 255, 0.1) 20%, /* Subtle shimmer */
+                rgba(255, 255, 255, 0.2) 60%,
+                rgba(255, 255, 255, 0)
+            );
+            animation: shimmer 1.5s infinite;
+            content: '';
+        }
+        @keyframes shimmer {
+            100% { transform: translateX(100%); }
+        }
+
         .modal-scroll::-webkit-scrollbar { width: 6px; }
         .modal-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
         .modal-scroll::-webkit-scrollbar-track { background: #0f172a; }
@@ -50,7 +165,7 @@
                 <input type="password" id="pinInput" placeholder="ENTER PIN" class="w-full bg-black/40 border border-slate-700 rounded-xl px-4 py-4 text-center text-2xl text-cyber focus:outline-none focus:border-cyber tracking-[8px] font-mono">
                 <button type="submit" class="w-full bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-4 rounded-xl transition-all tracking-widest text-sm">ACCESS</button>
             </form>
-            <p id="loginError" class="text-danger text-sm mt-4 hidden font-bold animate-bounce">ACCESS DENIED</p>
+            <p id="loginError" class="text-danger text-sm mt-4 hidden font-bold animate-bounce text-center"></p>
         </div>
     </div>
 
@@ -60,11 +175,32 @@
                 <div class="flex items-center gap-3">
                     <i class="fa-solid fa-server text-cyber text-lg"></i>
                     <div>
-                        <h1 class="text-xl font-bold text-white tracking-widest">TIFOR<span class="text-slate-500">.ADMIN</span></h1>
-                        <p class="text-[11px] text-slate-400 font-mono tracking-wider" id="liveClock">--:--</p>
+                        <h1 class="text-xl font-bold theme-text tracking-widest">TIFOR<span class="text-slate-500">.ADMIN</span></h1>
+                        <p class="text-[11px] theme-subtext font-mono tracking-wider" id="liveClock">--:--</p>
                     </div>
                 </div>
                 <div class="flex gap-2">
+                    <!-- 🔥 THEME TOGGLE -->
+                    <button onclick="toggleTheme()" id="themeBtn" class="w-9 h-9 bg-slate-500/10 text-slate-500 rounded-lg border border-slate-500/20 flex items-center justify-center hover:bg-slate-500 hover:text-white transition-all shadow-lg" title="Toggle Theme">
+                        <i class="fa-solid fa-moon"></i>
+                    </button>
+
+                    <!-- 🔥 BACKUP (DOWNLOAD) -->
+                    <button onclick="backupData()" class="w-9 h-9 bg-blue-500/10 text-blue-500 rounded-lg border border-blue-500/20 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-all shadow-lg shadow-blue-500/20" title="Backup Database (JSON)">
+                        <i class="fa-solid fa-cloud-arrow-down"></i>
+                    </button>
+
+                    <!-- 🔥 RESTORE (UPLOAD) -->
+                    <input type="file" id="restoreFile" accept=".json" class="hidden" onchange="restoreBackup(event)">
+                    <button onclick="document.getElementById('restoreFile').click()" class="w-9 h-9 bg-purple-500/10 text-purple-500 rounded-lg border border-purple-500/20 flex items-center justify-center hover:bg-purple-500 hover:text-white transition-all shadow-lg shadow-purple-500/20" title="Restore Database">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </button>
+
+                    <!-- Export Excel -->
+                    <button onclick="exportToExcel()" class="w-9 h-9 bg-emerald-500/10 text-emerald-500 rounded-lg border border-emerald-500/20 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-lg shadow-emerald-500/20" title="Export to Excel">
+                        <i class="fa-solid fa-file-excel"></i>
+                    </button>
+                    
                     <button onclick="openSettings()" class="w-9 h-9 bg-cyan-500/10 text-cyber rounded-lg border border-cyan-500/20 flex items-center justify-center hover:bg-cyan-500 hover:text-white transition-all shadow-lg shadow-cyan-500/20">
                         <i class="fa-solid fa-gear fa-spin-pulse" style="--fa-animation-duration: 3s;"></i>
                     </button>
@@ -75,19 +211,19 @@
 
         <main class="container mx-auto px-3 py-4 space-y-5">
             <div class="grid grid-cols-4 gap-2">
-                <div onclick="filterStatus('All')" id="cardAll" class="glass p-3 rounded-xl cursor-pointer text-center border-b-2 border-slate-500 card-active"><p class="text-[10px] uppercase text-slate-400 font-bold">Total</p><p class="text-2xl font-bold text-white font-mono" id="statTotal">0</p></div>
+                <div onclick="filterStatus('All')" id="cardAll" class="glass p-3 rounded-xl cursor-pointer text-center border-b-2 border-slate-500 card-active"><p class="text-[10px] uppercase theme-subtext font-bold">Total</p><p class="text-2xl font-bold theme-text font-mono" id="statTotal">0</p></div>
                 <div onclick="filterStatus('Pending')" id="cardPending" class="glass p-3 rounded-xl cursor-pointer text-center border-b-2 border-yellow-500"><p class="text-[10px] uppercase text-yellow-500 font-bold">Pending</p><p class="text-2xl font-bold text-yellow-400 font-mono" id="statPending">0</p></div>
                 <div onclick="filterStatus('Success')" id="cardSuccess" class="glass p-3 rounded-xl cursor-pointer text-center border-b-2 border-emerald-500"><p class="text-[10px] uppercase text-emerald-500 font-bold">Done</p><p class="text-2xl font-bold text-emerald-400 font-mono" id="statSuccess">0</p></div>
                 <div onclick="filterStatus('Cancelled')" id="cardCancelled" class="glass p-3 rounded-xl cursor-pointer text-center border-b-2 border-danger"><p class="text-[10px] uppercase text-danger font-bold">Fail</p><p class="text-2xl font-bold text-danger font-mono" id="statCancelled">0</p></div>
             </div>
 
             <div class="relative group">
-                <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Search TrxID, Phone, User..." class="w-full bg-slate-900/90 border border-slate-700 rounded-xl pl-10 pr-10 py-3 focus:outline-none focus:border-cyber text-white transition-all shadow-inner">
-                <button onclick="fetchData()" class="absolute right-3 top-3 text-slate-400 hover:text-white transition-transform active:rotate-180"><i class="fa-solid fa-rotate" id="refreshIcon"></i></button>
+                <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Search TrxID, Phone, User..." class="w-full theme-input rounded-xl pl-10 pr-10 py-3 focus:outline-none focus:border-cyber theme-text transition-all shadow-inner border">
+                <button onclick="fetchData()" class="absolute right-3 top-3 theme-subtext hover:text-cyber transition-transform active:rotate-180"><i class="fa-solid fa-rotate" id="refreshIcon"></i></button>
             </div>
 
             <div id="orderList" class="space-y-4">
-                <div class="text-center py-10 opacity-50"><div class="loader mx-auto mb-4"></div><p class="text-xs text-slate-400 tracking-[3px]">SYNCING DATABASE...</p></div>
+                <!-- Skeleton will be injected here via JS -->
             </div>
         </main>
         
@@ -98,8 +234,8 @@
 
     <div id="actionModal" class="fixed inset-0 z-50 bg-black/95 hidden items-center justify-center p-4 backdrop-blur-sm">
         <div class="glass w-full max-w-sm rounded-2xl p-6 border border-danger/30 shadow-2xl">
-            <h3 class="text-xl font-bold text-white mb-4 border-b border-white/10 pb-3 flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation text-danger"></i> REJECT ORDER</h3>
-            <textarea id="reasonInput" class="w-full bg-black/50 border border-slate-700 rounded-xl p-4 text-white text-sm h-24 mb-5 resize-none focus:border-danger outline-none" placeholder="Write reason..."></textarea>
+            <h3 class="text-xl font-bold theme-text mb-4 border-b border-white/10 pb-3 flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation text-danger"></i> REJECT ORDER</h3>
+            <textarea id="reasonInput" class="w-full theme-input rounded-xl p-4 theme-text text-sm h-24 mb-5 resize-none focus:border-danger outline-none border" placeholder="Write reason..."></textarea>
             <div class="flex gap-3">
                 <button onclick="closeModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-xl text-sm font-bold border border-slate-600">CANCEL</button>
                 <button onclick="confirmReject()" class="flex-1 bg-danger hover:bg-red-600 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-danger/20">CONFIRM</button>
@@ -110,8 +246,8 @@
     <div id="settingsModal" class="fixed inset-0 z-50 bg-black/95 hidden items-center justify-center p-4 backdrop-blur-sm">
         <div class="glass w-full max-w-lg rounded-2xl border border-cyan-500/30 shadow-2xl flex flex-col max-h-[90vh]">
             <div class="p-5 border-b border-white/10 flex justify-between items-center bg-cyan-900/10">
-                <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="fa-solid fa-sliders text-cyber"></i> SETTINGS</h3>
-                <button onclick="closeSettings()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+                <h3 class="text-xl font-bold theme-text flex items-center gap-2"><i class="fa-solid fa-sliders text-cyber"></i> SETTINGS</h3>
+                <button onclick="closeSettings()" class="theme-subtext hover:text-danger"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
             
             <div class="p-5 overflow-y-auto modal-scroll space-y-4 flex-1">
@@ -130,15 +266,44 @@
     </div>
 
     <script>
+        // 🔥 THEME LOGIC - UPDATED DEFAULT TO DARK
+        function initTheme() {
+            // Default to 'dark' if nothing saved
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const newTheme = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+
+        function updateThemeIcon(theme) {
+            const btn = document.getElementById('themeBtn');
+            if(theme === 'dark') {
+                btn.innerHTML = '<i class="fa-solid fa-sun text-warning"></i>';
+                btn.classList.add('bg-warning/10', 'border-warning/20');
+                btn.classList.remove('bg-slate-500/10', 'border-slate-500/20');
+            } else {
+                btn.innerHTML = '<i class="fa-solid fa-moon text-slate-600"></i>';
+                btn.classList.remove('bg-warning/10', 'border-warning/20');
+                btn.classList.add('bg-slate-500/10', 'border-slate-500/20');
+            }
+        }
+
+        // 🔥 SETTINGS CONFIG
         const settingsConfig = [
             { title: "SHOP INFO", type: "header" },
             { id: "notice_text", label: "Scrolling Notice (Ticker)", full: true },
-            // Removed Time Pickers and Status Msg as requested
-            
+            { title: "AUTO WHATSAPP MESSAGE", type: "header" },
+            { id: "wa_template", label: "Accept Message Template (Use {trx} & {amount})", full: true, type: "textarea" },
             { title: "LIVE RESERVE STOCK", type: "header" },
             { id: "reserveBDT", label: "Current BDT Reserve" },
             { id: "reserveUSDT", label: "Current USDT Reserve" },
-
             { title: "EXCHANGE RATES", type: "header" },
             { id: "rate_binance_buy", label: "Binance Sell Rate (User Buys)" },
             { id: "rate_binance_sell", label: "Binance Buy Rate (User Sells)" },
@@ -148,7 +313,6 @@
             { id: "rate_mexc_sell", label: "Mexc Buy Rate" },
             { id: "rate_redotpay_buy", label: "RedotPay Sell Rate" },
             { id: "rate_redotpay_sell", label: "RedotPay Buy Rate" },
-
             { title: "WALLET ADDRESSES", type: "header" },
             { id: "binance_id", label: "Binance Pay ID" }, 
             { id: "bitget_id", label: "Bitget UID" },
@@ -160,9 +324,7 @@
             { id: "tallykhata", label: "TallyKhata Personal" },
             { id: "rocket", label: "Rocket Number (11 Digits)" }, 
             { id: "rocket_extra", label: "Rocket Extra Digit (e.g. 8)" }, 
-
             { id: "whatsapp", label: "WhatsApp Number" },
-
             { title: "SERVICE CHARGE SLABS", type: "header" },
             { id: "fee_slab_1", label: "Fee (10 - 50 Tk)" },
             { id: "fee_slab_2", label: "Fee (51 - 100 Tk)" },
@@ -174,34 +336,150 @@
         let allData = [];
         let viewStatus = 'All'; 
         let targetId = null; 
+        let lastPendingCount = 0; 
+        let pollingWorker; // 🔥 Worker Instance
 
         function formatTime12H(date) {
             return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
         }
 
+        // 🔥 SESSION TIMEOUT LOGIC
+        let inactivityTimer;
+        function resetSessionTimer() {
+            clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(logout, SESSION_TIMEOUT_MIN * 60 * 1000);
+        }
+
+        // 🔥 WEB WORKER CODE BLOB
+        // This allows polling to continue even when tab is minimized/background
+        const workerCode = `
+            let intervalId;
+            self.onmessage = function(e) {
+                if (e.data.action === 'start') {
+                    const apiUrl = e.data.url;
+                    // Check immediately
+                    fetchData(apiUrl);
+                    // Then every 8 seconds
+                    intervalId = setInterval(() => fetchData(apiUrl), 8000);
+                } else if (e.data.action === 'stop') {
+                    clearInterval(intervalId);
+                }
+            };
+
+            async function fetchData(url) {
+                try {
+                    const res = await fetch(url + '?action=read&t=' + Date.now());
+                    const data = await res.json();
+                    self.postMessage({ status: 'success', data: data });
+                } catch (err) {
+                    self.postMessage({ status: 'error', error: err.message });
+                }
+            }
+        `;
+
         window.onload = () => {
+            initTheme(); // 🔥 INIT THEME
             setInterval(() => document.getElementById('liveClock').innerText = formatTime12H(new Date()), 1000);
+            
+            // Initialize Web Worker
+            const blob = new Blob([workerCode], { type: "application/javascript" });
+            pollingWorker = new Worker(URL.createObjectURL(blob));
+            
+            pollingWorker.onmessage = function(e) {
+                if (e.data.status === 'success') {
+                    handleWorkerData(e.data.data);
+                }
+            };
+
             if(sessionStorage.getItem('TIFOR_ADMIN') === 'GRANTED') {
                 showDashboard();
+                // Setup Session Monitoring
+                ['mousemove', 'keydown', 'click', 'scroll'].forEach(evt => document.addEventListener(evt, resetSessionTimer));
+                resetSessionTimer();
+            }
+            
+            // 🔥 SMART PERMISSION REQUEST
+            if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+                Notification.requestPermission();
             }
         };
 
-        function handleLogin(e) { e.preventDefault(); if(btoa(document.getElementById('pinInput').value) === VALID_PIN_B64) { sessionStorage.setItem('TIFOR_ADMIN', 'GRANTED'); showDashboard(); } else { document.getElementById('loginError').classList.remove('hidden'); setTimeout(() => document.getElementById('loginError').classList.add('hidden'), 2000); } }
+        // 🔥 SECURE LOGIN LOGIC
+        function handleLogin(e) { 
+            e.preventDefault(); 
+            const pin = document.getElementById('pinInput').value;
+            const errorEl = document.getElementById('loginError');
+            
+            // 1. Check if Blocked
+            const blockUntil = localStorage.getItem('block_until');
+            if(blockUntil && Date.now() < parseInt(blockUntil)) {
+                const remaining = Math.ceil((parseInt(blockUntil) - Date.now()) / 60000);
+                errorEl.innerText = `LOCKED! TRY IN ${remaining} MIN`;
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            // 2. Verify PIN
+            let isMatch = false;
+            if(VALID_PIN_B64 && btoa(pin) === VALID_PIN_B64) {
+                isMatch = true;
+                if(bcrypt) {
+                    const newHash = bcrypt.hashSync(pin, 10);
+                    console.log("OLD PIN USED. NEW HASH:", newHash);
+                }
+            }
+            else if(ADMIN_PIN_HASH && ADMIN_PIN_HASH.startsWith('$2a$')) {
+                if(bcrypt && bcrypt.compareSync(pin, ADMIN_PIN_HASH)) isMatch = true;
+            }
+
+            if(isMatch) { 
+                localStorage.removeItem('login_attempts');
+                localStorage.removeItem('block_until');
+                
+                sessionStorage.setItem('TIFOR_ADMIN', 'GRANTED'); 
+                
+                // 🔥 UNLOCK AUDIO CONTEXT
+                notifSound.play().then(() => {
+                    notifSound.pause();
+                    notifSound.currentTime = 0;
+                }).catch(e => console.log("Audio unlock failed"));
+
+                showDashboard(); 
+                
+                ['mousemove', 'keydown', 'click', 'scroll'].forEach(evt => document.addEventListener(evt, resetSessionTimer));
+                resetSessionTimer();
+
+            } else { 
+                let attempts = parseInt(localStorage.getItem('login_attempts') || '0') + 1;
+                localStorage.setItem('login_attempts', attempts);
+                
+                if(attempts >= MAX_ATTEMPTS) {
+                    const blockTime = Date.now() + (BLOCK_TIME_MIN * 60 * 1000);
+                    localStorage.setItem('block_until', blockTime);
+                    errorEl.innerText = `TOO MANY ATTEMPTS! BLOCKED FOR ${BLOCK_TIME_MIN} MIN.`;
+                } else {
+                    errorEl.innerText = `WRONG PIN! (${MAX_ATTEMPTS - attempts} attempts left)`;
+                }
+                
+                errorEl.classList.remove('hidden'); 
+                setTimeout(() => errorEl.classList.add('hidden'), 3000); 
+            } 
+        }
         
         function showDashboard() { 
             document.getElementById('loginScreen').classList.add('hidden'); 
             document.getElementById('dashboard').classList.remove('hidden'); 
-            
-            // 🔒 CACHE: Load from cache first for instant display
             loadFromCache();
-            
+            // Start Worker Polling instead of Main Thread setInterval
             fetchData(); 
-            setInterval(fetchData, 8000); 
         }
         
-        function logout() { sessionStorage.removeItem('TIFOR_ADMIN'); location.reload(); }
+        function logout() { 
+            if(pollingWorker) pollingWorker.postMessage({ action: 'stop' });
+            sessionStorage.removeItem('TIFOR_ADMIN'); 
+            location.reload(); 
+        }
 
-        // 🔒 CACHE LOGIC
         function loadFromCache() {
             const cachedOrders = localStorage.getItem('admin_orders');
             if(cachedOrders) {
@@ -212,19 +490,73 @@
             }
         }
 
-        async function fetchData() {
+        // 🔥 GENERATE SKELETON HTML
+        function getSkeletonHTML() {
+            let skeleton = '';
+            for(let i=0; i<3; i++) {
+                skeleton += `
+                <div class="skeleton-card">
+                    <div class="skeleton-box h-8 w-1/3 mb-4"></div>
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div class="skeleton-box h-16 w-full"></div>
+                        <div class="skeleton-box h-16 w-full"></div>
+                    </div>
+                    <div class="skeleton-box h-12 w-full mb-3"></div>
+                    <div class="space-y-2">
+                        <div class="skeleton-box h-8 w-full"></div>
+                        <div class="skeleton-box h-8 w-full"></div>
+                    </div>
+                </div>`;
+            }
+            return skeleton;
+        }
+
+        function fetchData() {
             document.getElementById('refreshIcon').classList.add('fa-spin');
-            try {
-                const res = await fetch(`${API_URL}?action=read&t=${Date.now()}`); 
-                const data = await res.json();
-                if(Array.isArray(data)) { 
-                    allData = data; 
-                    // 🔒 CACHE: Update cache with new data
-                    localStorage.setItem('admin_orders', JSON.stringify(data));
-                    renderView(); 
+            
+            if(document.getElementById('orderList').innerHTML.trim() === "") {
+                document.getElementById('orderList').innerHTML = getSkeletonHTML();
+            }
+
+            // 🔥 Start the background worker
+            if(pollingWorker) pollingWorker.postMessage({ action: 'start', url: API_URL });
+        }
+
+        // 🔥 HANDLE DATA FROM WORKER (This runs when Worker sends data back)
+        function handleWorkerData(data) {
+            document.getElementById('refreshIcon').classList.remove('fa-spin');
+            if(Array.isArray(data)) { 
+                allData = data; 
+                localStorage.setItem('admin_orders', JSON.stringify(data));
+                
+                const currentPending = allData.filter(i => i.status === 'Pending').length;
+                
+                // 🔥 NOTIFICATION & VIBRATION LOGIC
+                if(currentPending > lastPendingCount) {
+                    // Play Sound
+                    notifSound.play().catch(e => console.log("Audio autoplay prevented by browser"));
+                    
+                    // 🔥 VIBRATE (Pulse Pattern: 500ms vibe, 200ms pause, 500ms vibe)
+                    if (navigator.vibrate) {
+                        navigator.vibrate([500, 200, 500, 200, 500]); 
+                    }
+                    
+                    // Show Desktop Notification
+                    if(Notification.permission === "granted") {
+                        new Notification("New Order Received! 🚀", { 
+                            body: `You have ${currentPending} pending orders!`,
+                            icon: "https://cdn-icons-png.flaticon.com/512/1827/1827301.png", 
+                            vibrate: [500, 200, 500],
+                            tag: "new-order", 
+                            renotify: true
+                        });
+                    }
+                    showToast(`🔔 New Order! Total Pending: ${currentPending}`);
                 }
-            } catch(e) { console.error(e); } 
-            finally { document.getElementById('refreshIcon').classList.remove('fa-spin'); }
+                lastPendingCount = currentPending;
+
+                renderView(); 
+            }
         }
 
         function renderView() {
@@ -245,64 +577,64 @@
 
             const container = document.getElementById('orderList');
             if(list.length === 0) { 
-                container.innerHTML = `<div class="text-center py-20 opacity-40 text-slate-500 font-mono tracking-widest"><i class="fa-solid fa-magnifying-glass mb-3 text-2xl"></i><br>NO RESULTS FOUND</div>`; 
+                container.innerHTML = `<div class="text-center py-20 opacity-40 theme-subtext font-mono tracking-widest"><i class="fa-solid fa-magnifying-glass mb-3 text-2xl"></i><br>NO RESULTS FOUND</div>`; 
                 return; 
             }
             
             container.innerHTML = list.map(item => `
                 <div class="glass rounded-xl overflow-hidden mb-4 ${item.status === 'Pending' ? 'status-pending' : (item.status === 'Cancelled' ? 'status-cancelled' : 'status-success')} group transition-all hover:-translate-y-1">
-                    <div class="bg-slate-900/80 p-3 flex justify-between items-center border-b border-white/5">
+                    <div class="bg-slate-900/10 p-3 flex justify-between items-center border-b border-white/5">
                         <div class="flex items-center gap-2">
-                            <span class="font-bold text-cyan-400">${(item.platform || 'Unknown').split(' To ')[0]}</span>
-                            <i class="fa-solid fa-arrow-right text-slate-600 text-xs"></i>
+                            <span class="font-bold text-cyan-500">${(item.platform || 'Unknown').split(' To ')[0]}</span>
+                            <i class="fa-solid fa-arrow-right theme-subtext text-xs"></i>
                             <span class="font-bold text-warning">${(item.platform || 'Unknown').split(' To ')[1]}</span>
                         </div>
-                        <span class="text-[10px] font-mono text-slate-500 bg-black/40 px-2 py-1 rounded">${item.timestamp}</span>
+                        <span class="text-[10px] font-mono theme-subtext bg-black/10 px-2 py-1 rounded">${item.timestamp}</span>
                     </div>
                     <div class="p-3 space-y-3">
                         <div class="grid grid-cols-2 gap-3">
-                            <div class="bg-black/20 p-2 rounded border border-white/5">
-                                <div class="text-[10px] text-slate-500 font-bold uppercase">IN (User Sent)</div>
-                                <div class="text-white font-bold text-lg">${item.amountReceived}</div>
-                                <div class="text-xs text-slate-400 font-mono mt-1 flex items-center gap-1"><i class="fa-solid fa-user-tag text-[10px]"></i> ${item.userIdentifier}</div>
+                            <div class="bg-black/5 p-2 rounded border border-white/5">
+                                <div class="text-[10px] theme-subtext font-bold uppercase">IN (User Sent)</div>
+                                <div class="theme-text font-bold text-lg">${item.amountReceived}</div>
+                                <div class="text-xs theme-subtext font-mono mt-1 flex items-center gap-1"><i class="fa-solid fa-user-tag text-[10px]"></i> ${item.userIdentifier}</div>
                             </div>
                             <div class="bg-cyan-900/10 p-2 rounded border border-cyan-500/20 relative">
-                                <div class="text-[10px] text-cyan-500 font-bold uppercase">TrxID</div>
-                                <div class="text-white font-mono font-bold text-lg tracking-wide">${item.trxId}</div>
-                                <button onclick="copy('${item.trxId}')" class="absolute top-2 right-2 text-cyan-500 hover:text-white bg-cyan-500/10 hover:bg-cyan-500 p-1 rounded transition-all"><i class="fa-regular fa-copy"></i></button>
+                                <div class="text-[10px] text-cyan-600 font-bold uppercase">TrxID</div>
+                                <div class="theme-text font-mono font-bold text-lg tracking-wide">${item.trxId}</div>
+                                <button onclick="copy('${item.trxId}')" class="absolute top-2 right-2 text-cyan-600 hover:text-white bg-cyan-500/10 hover:bg-cyan-500 p-1 rounded transition-all"><i class="fa-regular fa-copy"></i></button>
                             </div>
                         </div>
                         <div class="bg-emerald-900/10 p-2 rounded border border-emerald-500/20 relative">
-                            <div class="text-[10px] text-emerald-500 font-bold uppercase">OUT (You Give)</div>
-                            <div class="text-emerald-400 font-bold text-2xl font-mono">${item.amountSent}</div>
-                            <button onclick="copy('${item.amountSent}')" class="absolute top-1/2 -translate-y-1/2 right-3 text-emerald-500 hover:text-white bg-emerald-500/10 hover:bg-emerald-500 w-8 h-8 flex items-center justify-center rounded transition-all"><i class="fa-regular fa-copy"></i></button>
+                            <div class="text-[10px] text-emerald-600 font-bold uppercase">OUT (You Give)</div>
+                            <div class="text-emerald-500 font-bold text-2xl font-mono">${item.amountSent}</div>
+                            <button onclick="copy('${item.amountSent}')" class="absolute top-1/2 -translate-y-1/2 right-3 text-emerald-600 hover:text-white bg-emerald-500/10 hover:bg-emerald-500 w-8 h-8 flex items-center justify-center rounded transition-all"><i class="fa-regular fa-copy"></i></button>
                         </div>
                         <div class="space-y-2">
-                            <div class="flex justify-between items-center bg-black/30 p-2 rounded border border-white/5">
+                            <div class="flex justify-between items-center bg-black/5 p-2 rounded border border-white/5">
                                 <div class="overflow-hidden mr-2">
-                                    <span class="text-[10px] text-slate-500 block uppercase font-bold">Receiver Account</span>
-                                    <span class="text-white font-mono text-sm truncate block">${item.receiverDetails}</span>
+                                    <span class="text-[10px] theme-subtext block uppercase font-bold">Receiver Account</span>
+                                    <span class="theme-text font-mono text-sm truncate block">${item.receiverDetails}</span>
                                 </div>
-                                <button onclick="copy('${item.receiverDetails}')" class="text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 p-1.5 rounded transition-all"><i class="fa-regular fa-copy"></i></button>
+                                <button onclick="copy('${item.receiverDetails}')" class="theme-subtext hover:text-white bg-slate-700/20 hover:bg-slate-600 p-1.5 rounded transition-all"><i class="fa-regular fa-copy"></i></button>
                             </div>
-                            <div class="flex justify-between items-center bg-black/30 p-2 rounded border border-white/5">
+                            <div class="flex justify-between items-center bg-black/5 p-2 rounded border border-white/5">
                                 <div class="overflow-hidden mr-2">
-                                    <span class="text-[10px] text-slate-500 block uppercase font-bold flex items-center gap-1"><i class="fa-brands fa-whatsapp text-green-500"></i> Contact</span>
-                                    <span class="text-green-400 font-mono text-sm truncate block">${item.contact}</span>
+                                    <span class="text-[10px] theme-subtext block uppercase font-bold flex items-center gap-1"><i class="fa-brands fa-whatsapp text-green-500"></i> Contact</span>
+                                    <span class="text-green-500 font-mono text-sm truncate block">${item.contact}</span>
                                 </div>
                                 <button onclick="copy('${item.contact}')" class="text-green-500 hover:text-white bg-green-500/10 hover:bg-green-600 p-1.5 rounded transition-all"><i class="fa-regular fa-copy"></i></button>
                             </div>
                         </div>
-                        ${item.status === 'Cancelled' ? `<div class="bg-red-500/10 border border-red-500/20 rounded p-3 text-xs text-red-200"><span class="font-bold mr-1 block mb-1 text-red-400">REJECTION REASON:</span> ${item.reason}</div>` : ''}
+                        ${item.status === 'Cancelled' ? `<div class="bg-red-500/10 border border-red-500/20 rounded p-3 text-xs text-red-500"><span class="font-bold mr-1 block mb-1 text-red-600">REJECTION REASON:</span> ${item.reason}</div>` : ''}
                     </div>
-                    <div class="p-3 bg-black/40 border-t border-white/5 flex gap-2">
+                    <div class="p-3 bg-black/5 border-t border-white/5 flex gap-2">
                         ${item.status === 'Pending' ? `
-                        <button onclick="performAction('${item.trxId}','Success')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg text-sm font-bold uppercase transition-all shadow-lg shadow-emerald-500/20 flex justify-center items-center gap-2"><i class="fa-solid fa-check"></i> Accept</button>
+                        <button onclick="performAction('${item.trxId}','Success', '', '${item.contact}', '${item.amountSent}')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg text-sm font-bold uppercase transition-all shadow-lg shadow-emerald-500/20 flex justify-center items-center gap-2"><i class="fa-solid fa-check"></i> Accept</button>
                         <button onclick="openModal('${item.trxId}')" class="flex-1 bg-red-600 hover:bg-red-500 text-white py-3 rounded-lg text-sm font-bold uppercase transition-all shadow-lg shadow-red-500/20 flex justify-center items-center gap-2"><i class="fa-solid fa-ban"></i> Reject</button>
                         <button onclick="performAction('${item.trxId}','delete')" class="w-10 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg border border-slate-700 transition-all"><i class="fa-solid fa-trash"></i></button>
                         ` : `
-                        <div class="flex-1 bg-black/20 border border-white/5 rounded-lg py-2 flex justify-center items-center">
-                            ${item.status === 'Cancelled' ? `<span class="text-danger font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-ban"></i> REJECTED</span>` : `<span class="text-emerald-400 font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-check-circle"></i> COMPLETED</span>`}
+                        <div class="flex-1 bg-black/5 border border-white/5 rounded-lg py-2 flex justify-center items-center">
+                            ${item.status === 'Cancelled' ? `<span class="text-danger font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-ban"></i> REJECTED</span>` : `<span class="text-emerald-500 font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-check-circle"></i> COMPLETED</span>`}
                         </div>
                         <button onclick="performAction('${item.trxId}','delete')" class="w-10 bg-slate-800 hover:bg-red-900/50 text-slate-500 hover:text-red-400 rounded-lg border border-slate-700 transition-all"><i class="fa-solid fa-trash"></i></button>
                         `}
@@ -312,12 +644,22 @@
             ['All','Pending','Success','Cancelled'].forEach(s => document.getElementById(`card${s}`).classList.toggle('card-active', viewStatus === s));
         }
 
-        async function performAction(id, type, reason='') {
+        async function performAction(id, type, reason='', contact='', amount='') {
             if(type === 'delete' && !confirm("Delete Permanently?")) return;
             const prev = JSON.parse(JSON.stringify(allData));
             if(type==='delete') allData = allData.filter(i=>i.trxId!==id);
             else allData = allData.map(i=>i.trxId===id ? {...i, status:type, reason:reason} : i);
             renderView();
+
+            if(type === 'Success' && contact) {
+                const cachedSettings = JSON.parse(localStorage.getItem('admin_settings') || '{}');
+                let template = cachedSettings.wa_template || "Order {trx} Completed! Sent: {amount}. Thanks!";
+                let cleanContact = contact.replace(/[^0-9]/g, '');
+                if(cleanContact.startsWith('01')) cleanContact = '88' + cleanContact;
+                let msg = template.replace('{trx}', id).replace('{amount}', amount);
+                window.open(`https://wa.me/${cleanContact}?text=${encodeURIComponent(msg)}`, '_blank');
+            }
+
             try {
                 await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: type==='delete'?'delete':'update', trxId: id, status: type, reason: reason }) });
                 setTimeout(fetchData, 1000);
@@ -328,12 +670,76 @@
             }
         }
 
+        function exportToExcel() {
+            if(!allData.length) { showToast("No Data to Export!"); return; }
+            
+            const exportData = allData.map(item => ({
+                "Date/Time": item.timestamp,
+                "TrxID": item.trxId,
+                "Platform": item.platform,
+                "Type": item.type,
+                "Status": item.status,
+                "Sender": item.userIdentifier,
+                "Amount In": item.amountReceived,
+                "Amount Out": item.amountSent,
+                "Receiver Details": item.receiverDetails,
+                "Contact": item.contact,
+                "Reason": item.reason || ""
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wscols = Object.keys(exportData[0]).map(k => ({wch: 20}));
+            ws['!cols'] = wscols;
+
+            XLSX.utils.book_append_sheet(wb, ws, "Orders");
+            const date = new Date().toISOString().slice(0,10);
+            XLSX.writeFile(wb, `Tifor_Orders_${date}.xlsx`);
+            showToast("Export Started! 📥");
+        }
+
+        function backupData() {
+            if(!allData.length) { showToast("No Data to Backup!"); return; }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allData));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            const date = new Date().toISOString().slice(0,10);
+            downloadAnchorNode.setAttribute("download", `Tifor_Backup_${date}.json`);
+            document.body.appendChild(downloadAnchorNode); 
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+            showToast("Backup Created! ☁️");
+        }
+
+        function restoreBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const restoredData = JSON.parse(e.target.result);
+                    if(Array.isArray(restoredData)) {
+                        allData = restoredData;
+                        localStorage.setItem('admin_orders', JSON.stringify(allData));
+                        renderView();
+                        showToast("Restored Successfully! ♻️");
+                    } else {
+                        alert("Invalid Backup File!");
+                    }
+                } catch(err) {
+                    alert("Error reading file!");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
         async function openSettings() {
             document.getElementById('settingsModal').classList.remove('hidden');
             document.getElementById('settingsModal').classList.add('flex');
             document.getElementById('settingsContainer').innerHTML = `<div class="col-span-2 text-center text-cyber animate-pulse py-10"><i class="fa-solid fa-circle-notch fa-spin text-2xl mb-2"></i><br>Connecting to Server...</div>`;
             
-            // 🔒 CACHE: Load Settings from cache first
             const cachedSettings = localStorage.getItem('admin_settings');
             if(cachedSettings) {
                 renderSettings(JSON.parse(cachedSettings));
@@ -342,7 +748,6 @@
             try {
                 const res = await fetch(`${API_URL}?action=getSettings&t=${Date.now()}`);
                 const data = await res.json();
-                // 🔒 CACHE: Update settings cache
                 localStorage.setItem('admin_settings', JSON.stringify(data));
                 renderSettings(data);
             } catch(e) {
@@ -358,11 +763,11 @@
                 } else {
                     let inputHtml = '';
                     if(f.type === 'textarea') {
-                        inputHtml = `<textarea id="set_${f.id}" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white h-16 resize-none focus:border-cyber outline-none">${data[f.id] || ''}</textarea>`;
+                        inputHtml = `<textarea id="set_${f.id}" class="w-full theme-input rounded p-2 theme-text border h-16 resize-none focus:border-cyber outline-none">${data[f.id] || ''}</textarea>`;
                     } else {
-                        inputHtml = `<input type="text" id="set_${f.id}" value="${data[f.id] || ''}" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:border-cyber outline-none">`;
+                        inputHtml = `<input type="text" id="set_${f.id}" value="${data[f.id] || ''}" class="w-full theme-input rounded p-2 theme-text border focus:border-cyber outline-none">`;
                     }
-                    html += `<div class="${f.full ? 'col-span-2' : ''}"><label class="text-[10px] text-slate-400 block mb-1">${f.label}</label>${inputHtml}</div>`;
+                    html += `<div class="${f.full ? 'col-span-2' : ''}"><label class="text-[10px] theme-subtext block mb-1">${f.label}</label>${inputHtml}</div>`;
                 }
             });
             document.getElementById('settingsContainer').innerHTML = html;
@@ -392,7 +797,6 @@
 
             try {
                 await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
-                // Update local cache immediately
                 localStorage.setItem('admin_settings', JSON.stringify(payload));
                 showToast("Settings Saved Successfully!");
                 setTimeout(closeSettings, 1000);
