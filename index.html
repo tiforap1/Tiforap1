@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tifor Admin Control - Final V5</title>
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000"> <title>Tifor Admin Control - Turbo V11</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Hind+Siliguri:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -34,12 +34,9 @@
         .status-cancelled { border-left: 4px solid #ff0f39; opacity: 0.8; }
         .loader { border: 3px solid rgba(0, 243, 255, 0.1); border-top: 3px solid #00f3ff; border-radius: 50%; width: 30px; height: 30px; animation: spin 0.8s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        /* Scrollbar for Modal */
         .modal-scroll::-webkit-scrollbar { width: 6px; }
         .modal-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
         .modal-scroll::-webkit-scrollbar-track { background: #0f172a; }
-        
-        /* Settings Section Header */
         .settings-section-title { color: #00f3ff; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid rgba(0, 243, 255, 0.2); padding-bottom: 5px; margin-top: 15px; margin-bottom: 10px; grid-column: span 2; }
     </style>
 </head>
@@ -85,9 +82,6 @@
             </div>
 
             <div class="relative group">
-                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <i class="fa-solid fa-magnifying-glass text-slate-500 group-focus-within:text-cyber transition-colors"></i>
-                </div>
                 <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Search TrxID, Phone, User..." class="w-full bg-slate-900/90 border border-slate-700 rounded-xl pl-10 pr-10 py-3 focus:outline-none focus:border-cyber text-white transition-all shadow-inner">
                 <button onclick="fetchData()" class="absolute right-3 top-3 text-slate-400 hover:text-white transition-transform active:rotate-180"><i class="fa-solid fa-rotate" id="refreshIcon"></i></button>
             </div>
@@ -105,10 +99,6 @@
     <div id="actionModal" class="fixed inset-0 z-50 bg-black/95 hidden items-center justify-center p-4 backdrop-blur-sm">
         <div class="glass w-full max-w-sm rounded-2xl p-6 border border-danger/30 shadow-2xl">
             <h3 class="text-xl font-bold text-white mb-4 border-b border-white/10 pb-3 flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation text-danger"></i> REJECT ORDER</h3>
-            <div class="grid grid-cols-2 gap-2 mb-4">
-                <button onclick="setReason('Fake TrxID')" class="text-xs border border-slate-700 bg-slate-800 hover:bg-red-900/30 text-slate-300 py-2 rounded font-bold">Fake TrxID</button>
-                <button onclick="setReason('Payment Not Received')" class="text-xs border border-slate-700 bg-slate-800 hover:bg-red-900/30 text-slate-300 py-2 rounded font-bold">No Payment</button>
-            </div>
             <textarea id="reasonInput" class="w-full bg-black/50 border border-slate-700 rounded-xl p-4 text-white text-sm h-24 mb-5 resize-none focus:border-danger outline-none" placeholder="Write reason..."></textarea>
             <div class="flex gap-3">
                 <button onclick="closeModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-xl text-sm font-bold border border-slate-600">CANCEL</button>
@@ -140,70 +130,99 @@
     </div>
 
     <script>
-        // --- ⚙️ NEW CONFIGURATION ---
         const settingsConfig = [
-            // --- SHOP STATUS ---
-            { title: "SHOP CONTROL", type: "header" },
-            { id: "shopOpenTime", label: "Open Time (e.g. 10:00 AM)" },
-            { id: "shopCloseTime", label: "Close Time (e.g. 11:00 PM)" },
-            { id: "shopStatusMsg", label: "Closed Popup Message", full: true, type: "textarea" },
+            { title: "SHOP INFO", type: "header" },
             { id: "notice_text", label: "Scrolling Notice (Ticker)", full: true },
+            // Removed Time Pickers and Status Msg as requested
             
-            // ✅ ADDED: LIVE RESERVE (Live Recharge)
             { title: "LIVE RESERVE STOCK", type: "header" },
             { id: "reserveBDT", label: "Current BDT Reserve" },
             { id: "reserveUSDT", label: "Current USDT Reserve" },
 
-            // --- BINANCE RATES ---
-            { title: "BINANCE RATES", type: "header" },
-            { id: "rate_binance_buy", label: "Rate: You Sell (User Buys)" },
-            { id: "rate_binance_sell", label: "Rate: You Buy (User Sells)" },
+            { title: "EXCHANGE RATES", type: "header" },
+            { id: "rate_binance_buy", label: "Binance Sell Rate (User Buys)" },
+            { id: "rate_binance_sell", label: "Binance Buy Rate (User Sells)" },
+            { id: "rate_bitget_buy", label: "Bitget Sell Rate" },
+            { id: "rate_bitget_sell", label: "Bitget Buy Rate" },
+            { id: "rate_mexc_buy", label: "Mexc Sell Rate" },
+            { id: "rate_mexc_sell", label: "Mexc Buy Rate" },
+            { id: "rate_redotpay_buy", label: "RedotPay Sell Rate" },
+            { id: "rate_redotpay_sell", label: "RedotPay Buy Rate" },
 
-            // --- BITGET RATES ---
-            { title: "BITGET RATES", type: "header" },
-            { id: "rate_bitget_buy", label: "Rate: You Sell (User Buys)" },
-            { id: "rate_bitget_sell", label: "Rate: You Buy (User Sells)" },
-
-            // --- MEXC RATES ---
-            { title: "MEXC RATES", type: "header" },
-            { id: "rate_mexc_buy", label: "Rate: You Sell (User Buys)" },
-            { id: "rate_mexc_sell", label: "Rate: You Buy (User Sells)" },
-
-            // --- REDOTPAY RATES ---
-            { title: "REDOTPAY RATES", type: "header" },
-            { id: "rate_redotpay_buy", label: "Rate: You Sell (User Buys)" },
-            { id: "rate_redotpay_sell", label: "Rate: You Buy (User Sells)" },
-
-            // --- WALLET INFO ---
             { title: "WALLET ADDRESSES", type: "header" },
-            { id: "binance_id", label: "Binance Pay ID" }, { id: "bitget_id", label: "Bitget UID" },
-            { id: "mexc_id", label: "Mexc UID" }, { id: "redotpay_id", label: "RedotPay ID" },
-            { id: "bkash", label: "Bkash Personal" }, { id: "nagad", label: "Nagad Personal" },
-            { id: "rocket", label: "Rocket Personal" }, { id: "upay", label: "Upay Personal" },
-            { id: "tallykhata", label: "TallyKhata Personal" }, // 👈 ADDED HERE
-            { id: "whatsapp", label: "WhatsApp Number" }
+            { id: "binance_id", label: "Binance Pay ID" }, 
+            { id: "bitget_id", label: "Bitget UID" },
+            { id: "mexc_id", label: "Mexc UID" }, 
+            { id: "redotpay_id", label: "RedotPay ID" },
+            { id: "bkash", label: "Bkash Personal" }, 
+            { id: "nagad", label: "Nagad Personal" },
+            { id: "upay", label: "Upay Personal" },
+            { id: "tallykhata", label: "TallyKhata Personal" },
+            { id: "rocket", label: "Rocket Number (11 Digits)" }, 
+            { id: "rocket_extra", label: "Rocket Extra Digit (e.g. 8)" }, 
+
+            { id: "whatsapp", label: "WhatsApp Number" },
+
+            { title: "SERVICE CHARGE SLABS", type: "header" },
+            { id: "fee_slab_1", label: "Fee (10 - 50 Tk)" },
+            { id: "fee_slab_2", label: "Fee (51 - 100 Tk)" },
+            { id: "fee_slab_3", label: "Fee (101 - 300 Tk)" },
+            { id: "fee_slab_4", label: "Fee (301 - 1000 Tk)" },
+            { id: "fee_slab_5", label: "Fee (1001 - 2222 Tk)" }
         ];
 
         let allData = [];
         let viewStatus = 'All'; 
         let targetId = null; 
 
+        function formatTime12H(date) {
+            return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
+        }
+
         window.onload = () => {
-            setInterval(() => document.getElementById('liveClock').innerText = new Date().toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit'}), 1000);
-            if(sessionStorage.getItem('TIFOR_ADMIN') === 'GRANTED') showDashboard();
+            setInterval(() => document.getElementById('liveClock').innerText = formatTime12H(new Date()), 1000);
+            if(sessionStorage.getItem('TIFOR_ADMIN') === 'GRANTED') {
+                showDashboard();
+            }
         };
 
         function handleLogin(e) { e.preventDefault(); if(btoa(document.getElementById('pinInput').value) === VALID_PIN_B64) { sessionStorage.setItem('TIFOR_ADMIN', 'GRANTED'); showDashboard(); } else { document.getElementById('loginError').classList.remove('hidden'); setTimeout(() => document.getElementById('loginError').classList.add('hidden'), 2000); } }
-        function showDashboard() { document.getElementById('loginScreen').classList.add('hidden'); document.getElementById('dashboard').classList.remove('hidden'); fetchData(); setInterval(fetchData, 8000); }
+        
+        function showDashboard() { 
+            document.getElementById('loginScreen').classList.add('hidden'); 
+            document.getElementById('dashboard').classList.remove('hidden'); 
+            
+            // 🔒 CACHE: Load from cache first for instant display
+            loadFromCache();
+            
+            fetchData(); 
+            setInterval(fetchData, 8000); 
+        }
+        
         function logout() { sessionStorage.removeItem('TIFOR_ADMIN'); location.reload(); }
 
-        // --- DATA FETCHING ---
+        // 🔒 CACHE LOGIC
+        function loadFromCache() {
+            const cachedOrders = localStorage.getItem('admin_orders');
+            if(cachedOrders) {
+                try {
+                    allData = JSON.parse(cachedOrders);
+                    renderView();
+                } catch(e) { console.error("Cache Error"); }
+            }
+        }
+
         async function fetchData() {
             document.getElementById('refreshIcon').classList.add('fa-spin');
             try {
-                const res = await fetch(`${API_URL}?action=read&t=${Date.now()}`);
+                const res = await fetch(`${API_URL}?action=read&t=${Date.now()}`); 
                 const data = await res.json();
-                if(Array.isArray(data)) { allData = data; renderView(); }
+                if(Array.isArray(data)) { 
+                    allData = data; 
+                    // 🔒 CACHE: Update cache with new data
+                    localStorage.setItem('admin_orders', JSON.stringify(data));
+                    renderView(); 
+                }
             } catch(e) { console.error(e); } 
             finally { document.getElementById('refreshIcon').classList.remove('fa-spin'); }
         }
@@ -215,9 +234,7 @@
                 const matchesStatus = (viewStatus === 'All' || i.status === viewStatus);
                 const matchesSearch = search === '' || 
                     (i.trxId && i.trxId.toLowerCase().includes(search)) ||
-                    (i.userIdentifier && i.userIdentifier.toLowerCase().includes(search)) ||
-                    (i.contact && i.contact.toLowerCase().includes(search)) ||
-                    (i.receiverDetails && i.receiverDetails.toLowerCase().includes(search));
+                    (i.userIdentifier && i.userIdentifier.toLowerCase().includes(search));
                 return matchesStatus && matchesSearch;
             });
             
@@ -255,13 +272,11 @@
                                 <button onclick="copy('${item.trxId}')" class="absolute top-2 right-2 text-cyan-500 hover:text-white bg-cyan-500/10 hover:bg-cyan-500 p-1 rounded transition-all"><i class="fa-regular fa-copy"></i></button>
                             </div>
                         </div>
-                        
                         <div class="bg-emerald-900/10 p-2 rounded border border-emerald-500/20 relative">
                             <div class="text-[10px] text-emerald-500 font-bold uppercase">OUT (You Give)</div>
                             <div class="text-emerald-400 font-bold text-2xl font-mono">${item.amountSent}</div>
                             <button onclick="copy('${item.amountSent}')" class="absolute top-1/2 -translate-y-1/2 right-3 text-emerald-500 hover:text-white bg-emerald-500/10 hover:bg-emerald-500 w-8 h-8 flex items-center justify-center rounded transition-all"><i class="fa-regular fa-copy"></i></button>
                         </div>
-
                         <div class="space-y-2">
                             <div class="flex justify-between items-center bg-black/30 p-2 rounded border border-white/5">
                                 <div class="overflow-hidden mr-2">
@@ -278,10 +293,8 @@
                                 <button onclick="copy('${item.contact}')" class="text-green-500 hover:text-white bg-green-500/10 hover:bg-green-600 p-1.5 rounded transition-all"><i class="fa-regular fa-copy"></i></button>
                             </div>
                         </div>
-
                         ${item.status === 'Cancelled' ? `<div class="bg-red-500/10 border border-red-500/20 rounded p-3 text-xs text-red-200"><span class="font-bold mr-1 block mb-1 text-red-400">REJECTION REASON:</span> ${item.reason}</div>` : ''}
                     </div>
-                    
                     <div class="p-3 bg-black/40 border-t border-white/5 flex gap-2">
                         ${item.status === 'Pending' ? `
                         <button onclick="performAction('${item.trxId}','Success')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg text-sm font-bold uppercase transition-all shadow-lg shadow-emerald-500/20 flex justify-center items-center gap-2"><i class="fa-solid fa-check"></i> Accept</button>
@@ -296,18 +309,15 @@
                     </div>
                 </div>
             `).join('');
-
             ['All','Pending','Success','Cancelled'].forEach(s => document.getElementById(`card${s}`).classList.toggle('card-active', viewStatus === s));
         }
 
         async function performAction(id, type, reason='') {
             if(type === 'delete' && !confirm("Delete Permanently?")) return;
-            
             const prev = JSON.parse(JSON.stringify(allData));
             if(type==='delete') allData = allData.filter(i=>i.trxId!==id);
             else allData = allData.map(i=>i.trxId===id ? {...i, status:type, reason:reason} : i);
             renderView();
-
             try {
                 await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: type==='delete'?'delete':'update', trxId: id, status: type, reason: reason }) });
                 setTimeout(fetchData, 1000);
@@ -318,36 +328,44 @@
             }
         }
 
-        // --- 🟢 SETTINGS LOGIC (THE FIX) ---
         async function openSettings() {
             document.getElementById('settingsModal').classList.remove('hidden');
             document.getElementById('settingsModal').classList.add('flex');
-            
             document.getElementById('settingsContainer').innerHTML = `<div class="col-span-2 text-center text-cyber animate-pulse py-10"><i class="fa-solid fa-circle-notch fa-spin text-2xl mb-2"></i><br>Connecting to Server...</div>`;
             
+            // 🔒 CACHE: Load Settings from cache first
+            const cachedSettings = localStorage.getItem('admin_settings');
+            if(cachedSettings) {
+                renderSettings(JSON.parse(cachedSettings));
+            }
+
             try {
                 const res = await fetch(`${API_URL}?action=getSettings&t=${Date.now()}`);
                 const data = await res.json();
-                
-                let html = '';
-                settingsConfig.forEach(f => {
-                    if(f.type === "header") {
-                        html += `<div class="settings-section-title">${f.title}</div>`;
-                    } else {
-                        html += `
-                        <div class="${f.full ? 'col-span-2' : ''}">
-                            <label class="text-[10px] text-slate-400 block mb-1">${f.label}</label>
-                            ${f.type === 'textarea' ? 
-                            `<textarea id="set_${f.id}" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white h-16 resize-none focus:border-cyber outline-none">${data[f.id] || ''}</textarea>` : 
-                            `<input type="text" id="set_${f.id}" value="${data[f.id] || ''}" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:border-cyber outline-none">`}
-                        </div>`;
-                    }
-                });
-                document.getElementById('settingsContainer').innerHTML = html;
-
+                // 🔒 CACHE: Update settings cache
+                localStorage.setItem('admin_settings', JSON.stringify(data));
+                renderSettings(data);
             } catch(e) {
-                document.getElementById('settingsContainer').innerHTML = `<div class="col-span-2 text-center text-danger">Failed to load settings!<br>Check API URL.</div>`;
+                if(!cachedSettings) document.getElementById('settingsContainer').innerHTML = `<div class="col-span-2 text-center text-danger">Failed to load settings!<br>Check API URL.</div>`;
             }
+        }
+
+        function renderSettings(data) {
+            let html = '';
+            settingsConfig.forEach(f => {
+                if(f.type === "header") {
+                    html += `<div class="settings-section-title">${f.title}</div>`;
+                } else {
+                    let inputHtml = '';
+                    if(f.type === 'textarea') {
+                        inputHtml = `<textarea id="set_${f.id}" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white h-16 resize-none focus:border-cyber outline-none">${data[f.id] || ''}</textarea>`;
+                    } else {
+                        inputHtml = `<input type="text" id="set_${f.id}" value="${data[f.id] || ''}" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:border-cyber outline-none">`;
+                    }
+                    html += `<div class="${f.full ? 'col-span-2' : ''}"><label class="text-[10px] text-slate-400 block mb-1">${f.label}</label>${inputHtml}</div>`;
+                }
+            });
+            document.getElementById('settingsContainer').innerHTML = html;
         }
 
         async function saveSettings() {
@@ -356,14 +374,26 @@
             btn.disabled = true;
 
             let payload = { action: "updateSettings" };
+            let hasError = false;
+
             settingsConfig.forEach(f => {
                 if(f.type !== "header") {
-                    payload[f.id] = document.getElementById(`set_${f.id}`).value;
+                    let el = document.getElementById(`set_${f.id}`);
+                    if(el) payload[f.id] = el.value;
+                    else hasError = true;
                 }
             });
 
+            if(hasError) {
+                alert("Some fields failed to load. Please refresh and try again.");
+                btn.innerHTML = "SAVE CHANGES"; btn.disabled = false;
+                return;
+            }
+
             try {
                 await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+                // Update local cache immediately
+                localStorage.setItem('admin_settings', JSON.stringify(payload));
                 showToast("Settings Saved Successfully!");
                 setTimeout(closeSettings, 1000);
             } catch(e) { alert("Failed to Save"); }
